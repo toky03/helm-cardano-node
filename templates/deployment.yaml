@@ -82,10 +82,10 @@ spec:
         {{ else }}
           name: "relayconfig"
         {{ end }}
-      {{- with .Values.nodeSelector }}
       - name: db-storage
-        persistenceVolumeClaim:
+        persistentVolumeClaim:
           claimName: {{ include "cardano-node.fullname" . }}-pvc
+      {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
       {{- end }}

@@ -3,12 +3,16 @@ kind: PersistentVolumeClaim
 metadata:
   name: {{ include "cardano-node.fullname" . }}-pvc
 spec:
+  storageClassName: {{ .Values.persistentVolume.storageClass }}
   selector:
     matchLabels:
       claim: cardano-pvc
       network: {{ .Values.network }}
       nodetype: {{ .Values.nodetype }}
-  accessModes: {{ .Values.persistentVolume.accessModes }}
+  {{- with .Values.persistentVolume.accessModes}}
+  accessModes: 
+  {{- toYaml . | nindent 4 }}
+  {{- end}}
   resources: 
     requests:
       storage: {{ .Values.persistentVolume.size }}
