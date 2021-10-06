@@ -1,0 +1,99 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "cardano-node.fullname" . }}
+  labels:
+    {{- include "cardano-node.labels" . | nindent 4 }}
+spec:
+{{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.replicaCount }}
+{{- end }}
+  selector:
+    matchLabels:
+      {{- include "cardano-node.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+    {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+    {{- end }}
+      labels:
+        {{- include "cardano-node.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "cardano-node.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: {{ .Chart.Name }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          {{ if eq .Values.network "mainnet" }}
+          command: ["cardano-node", "run", "--topology", "/config/topology.json", "--database-path", "/db", "--socket-path", "/db/node.socket", "--config", "/mainnetconf/mainnet-config.json", "--port", "3001", "--host-addr", "0.0.0.0"]
+        {{ else }}
+          command: ["cardano-node", "run", "--topology", "/config/topology.json", "--database-path", "/db", "--socket-path", "/db/node.socket", "--config", "/testnetconf/testnet-config.json", "--port", "3001", "--host-addr", "0.0.0.0"]
+        {{ end }}
+          env:
+            - name: CARDANO_DATABASE_PATH
+              value: "/db"
+            - name: CARDANO_SOCKET_PATH
+              value: "/db/node.socket"
+            - name: NETWORK
+              value: {{ .Values.network }}
+            - name: CARDANO_TOPOLOGY
+              value: "config/topology.json"
+            - name: CARDANO_CONFIG
+            {{ if eq .Values.network "mainnet" }}
+              value: "/mainnetconf/mainnet-config.json"
+            {{ else }}
+              value: "/testnetconf/testnet-config.json"
+            {{ end }}
+          ports: 
+            - name: http
+              containerPort: 3001
+              protocol: TCP
+            - name: monitoring
+              containerPort: 12798
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /metrics
+              port: monitoring
+          readinessProbe:
+            tcpSocket:
+              port: http
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          volumeMounts:
+          - name: config
+            mountPath: /config
+          - name: db-storage
+            mountPath: /db
+      volumes: 
+      - name: config
+        configMap: 
+        {{ if .Values.producingNode }}
+          name: "producingconfig"
+        {{ else }}
+          name: "relayconfig"
+        {{ end }}
+      {{- with .Values.nodeSelector }}
+      - name: db-storage
+        persistenceVolumeClaim:
+          claimName: {{ include "cardano-node.fullname" . }}-pvc
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

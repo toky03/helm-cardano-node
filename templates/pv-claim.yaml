@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "cardano-node.fullname" . }}-pvc
+spec:
+  selector:
+    matchLabels:
+      claim: cardano-pvc
+      network: {{ .Values.network }}
+      nodetype: {{ .Values.nodetype }}
+  accessModes: {{ .Values.persistentVolume.accessModes }}
+  resources: 
+    requests:
+      storage: {{ .Values.persistentVolume.size }}
